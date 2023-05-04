@@ -7,8 +7,10 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #define PORT 8080
+#define MAX_CLIENT 20
 
 int start_server();
 void stop_server();
@@ -22,5 +24,8 @@ char* receive_client(int client_fd);
 void send_client(int client_fd, char* data);
 
 void error(const char *msg);
+
+void *handle_client(void *arg);
+void *execute_server(void *arg);
 
 #endif

@@ -5,7 +5,8 @@
 
 #include "console.c"
 #include "server.c"
-//#include "client.c"
+#include "client.c"
+
 
 int main() {
     printf("Choisissez un mode ? \n");
@@ -15,8 +16,52 @@ int main() {
     int reponse = 0;
     scanf("%d", &reponse);
 
-    if(reponse == 1){
-        
+    if(reponse == 1){ 
+        clear();
+
+        socket_client_fd = CreateSocket();
+        struct sockaddr_in serv_addr;
+
+        char ip[1024];
+        printf("Entrez l'ip du serveur distant: ");
+        scanf("%s", ip);
+
+        BindSocket("127.0.0.1", &serv_addr);
+
+        char pseudo[100];
+        printf("Saisissez votre pseudo: ");
+        scanf("%s", pseudo);
+
+        Connect(socket_client_fd, &serv_addr);
+
+        pthread_create(&client_thread, NULL, execute_client, (void *)&socket_client_fd);
+
+        clear();
+
+        setCursorConsole(0, -1, "Bienvenue dans le salon de chat !");
+
+        sleep(1);
+
+        while(1){
+            clearLigne(0);
+            setCursorConsole(0, 0, "Message: ");
+            char message[1000];
+            fgets(message, 1000, stdin);
+
+            if(strlen(message) <= 1) continue;
+
+            char m[1024] = "Vous: ";
+            strcat(m, message);
+            setCursorConsole(0, -1, m);
+
+            char me[1024] = "\0";
+            strcat(me, pseudo);
+            strcat(me, ": ");
+            strcat(me, message);
+            SendMessage(socket_client_fd, me);
+
+            signal(SIGINT, INThandler);
+        }
     }
 
     if(reponse == 2){
@@ -53,6 +98,7 @@ int main() {
                     free(clients_fd);
                     free(server_fd);
 
+                    execute_server_state = 0;
                     pthread_cancel(server_thread);
                     pthread_join(server_thread, NULL);
                     
@@ -72,28 +118,39 @@ int main() {
                     setCursorConsole(0, -1, "ERROR quit is not possible because the server is running !");
                 }
             }
-            else if(strncmp(commande, "message", 7) == 0){
+            else if(strncmp(commande, "message ", 8) == 0){
                 if(server_thread != 0){
-                    char message[1048];
-                    char *line;
-                    char *result = strstr(commande, "message ");
-                    strcpy(line, result + strlen("message "));
+                    char message[strlen(commande) - 8];
 
-                    snprintf(message, sizeof(message), "m%s", line);
-                    send_all(message);
+                    int i;
+                    for (i = 0; i < strlen(commande) - 8; i++) {
+                        message[i] = commande[i + 8];
+                    }
+                    message[i] = '\0';
+
+                    char text[1024] = "Serveur: ";
+                    strcat(text, message);
+
+                    send_all(text);
 
                     sleep(1);
                 }else{
                     setCursorConsole(0, -1, "ERROR message is not possible because the server is not running !");
                 }
-            }else{
+            }else if(strncmp(commande, "users", 5) == 0){
+                char num[100];
+                char text[100] = "DEBUG number of client: ";
+                sprintf(num, "%d", number_client());
+                strcat(text, num);
+                setCursorConsole(0, -1, text);
+            }
+            else{
                 setCursorConsole(0, -1, "ERROR this command does not exist !");
             }
-			
-			printf("%d", number_client());
     
         }
     }
+    
 
     clear();
     return 0;

@@ -16,7 +16,10 @@ void clearLigne(int y){
 
 void setCursorConsole(int x, int y, char* message){
     if(y == -1){
-        if(yConsole == 20) yConsole = 2;
+        if(yConsole == 20){
+            yConsole = 2;
+            clear();
+        } 
         printf("\033[%d;%dH%s", yConsole, x, message);
         yConsole++;
     }else{

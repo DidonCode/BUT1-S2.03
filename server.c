@@ -1,13 +1,10 @@
 #include "server.h"
 
 int start_server(struct sockaddr_in address){
-    // Creer le socket serveur
     int server_fd = create_server_socket();
     
-    // Configurer l'adresse et le port du serveur
     bind_server_socket(server_fd, &address);
     
-    // Mettre le serveur en écoute pour les connexions entrantes
     listen_server_socket(server_fd);
 
     return server_fd;
@@ -15,7 +12,6 @@ int start_server(struct sockaddr_in address){
 
 void stop_server(int server_fd){
     setCursorConsole(0, -1, "Server stopped.. OK");
-    //printf("Server stopped.. OK");
 
     close(server_fd);
 }
@@ -33,7 +29,6 @@ int create_server_socket() {
     }
     
     setCursorConsole(0, -1, "Server started.. OK");
-    //printf("Server started.. OK");
 
     return server_fd;
 }
@@ -68,24 +63,20 @@ int accept_client(int server_fd, struct sockaddr_in *address, socklen_t addrlen)
 char* receive_client(int client_fd) {
     char *data = malloc(1024 * sizeof(char));
 
-    // Lire le message envoyé par le client
     if(read(client_fd, data, 1024) > 0){
         char message[1048];
         snprintf(message, sizeof(message), "Client ID: %d, Receive Message: %s", client_fd, data);
         setCursorConsole(0, -1, message);
-        //printf("Client ID: %d, Receive Message: %s", client_fd, data);
     }
     return data;
 }
 
 void send_client(int client_fd, char *data) {
-    // Envoyer une information au client
     send(client_fd, data, strlen(data), 0);
 
     char message[1048];
     snprintf(message, sizeof(message), "Client ID: %d, Send Message: %s", client_fd, data);
     setCursorConsole(0, -1, message);
-    //printf("Client ID: %d, Send Message: %s", client_fd, data);
 }
 
 void error(const char *msg) {
@@ -94,10 +85,6 @@ void error(const char *msg) {
 }
 
 //---------------\\
-
-int *clients_fd = NULL; 
-pthread_t *clients_thread = NULL;
-int *server_fd = NULL;
 
 void send_all(char *data){
     for(int i = 0; i < MAX_CLIENT; i++){
@@ -124,17 +111,17 @@ void *handle_client(void *arg){
     while(1){
         char* data = receive_client(client_fd);
 
-        if(data[0] == 'c'){
-
-        }
-
-        if(data[0] == 'd'){
+        if(strlen(data) == 10 && strncmp(data, "disconnect", 10) == 0){
             free(data);
+            char text[1024] = "Cliend ID: ";
+            char num[100];
+            sprintf(num, "%d", client_fd);
+            strcat(text, num);
+            strcat(text, ", Disconnected !");
+            setCursorConsole(0, -1, text);
             close(client_fd);
             pthread_exit(NULL);
-        }
-
-        if(data[0] == 'm'){
+        }else{
             for(int i = 0; i < MAX_CLIENT; i++){
                 if(clients_fd[i] > 0 && clients_fd[i] != client_fd){
                     send_client(clients_fd[i], data);
@@ -160,20 +147,26 @@ void *execute_server(void *arg){
 
     //-------------------\\
 
-    // Demarer le serveur
     *server_fd = start_server(address);
 
-    while(1){
+    execute_server_state = 1;
+    while(execute_server_state){
 
-        // Accepter une connexion entrante
         int client_fd = accept_client(*server_fd, &address, addrlen);
 
         if(client_fd > 0){
-            //printf("Cliend ID: %d, Connected \n", client_fd);
+            for(int i = 0; i < MAX_CLIENT; i++){
+                if(clients_thread[i] > 0 && pthread_tryjoin_np(clients_thread[i], NULL) == 0){
+                    pthread_cancel(clients_thread[i]);
+                    pthread_join(clients_thread[i], NULL);
+                    clients_thread[i] = 0;
+                    clients_fd[i] = 0;
+                }
+            }
 
             int index = 0;
             for(int i = 0; i < MAX_CLIENT; i++){
-                if(clients_thread[i] == 0  || pthread_tryjoin_np(clients_thread[i], NULL) == 0){
+                if(clients_thread[i] == 0){
                     index = i;
                     break;
                 }
